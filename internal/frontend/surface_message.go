@@ -67,6 +67,7 @@ type messageRowSpec struct {
 	chips        []messageChipSpec
 	spans        []messageTextSpan
 	senderHeader bool
+	centered     bool
 }
 
 // messageGroupLocalInteraction is one interactive region of a message group.
@@ -535,7 +536,10 @@ func buildMessageRows(
 					lines = []string{""}
 				}
 				for _, line := range lines {
-					rows = append(rows, messageRowSpec{text: line, kind: kind, outgoing: message.Outgoing, chatID: message.ChatID, messageID: message.ID})
+					if message.Service {
+						line = strings.TrimSpace(line)
+					}
+					rows = append(rows, messageRowSpec{text: line, kind: kind, outgoing: message.Outgoing, centered: message.Service, chatID: message.ChatID, messageID: message.ID})
 				}
 			}
 		}
@@ -813,6 +817,9 @@ func messageRowStyle(kind messageRowKind, styles renderStyles) lipgloss.Style {
 // the avatar gutter (or 1); outgoing rows are right-aligned against their text
 // width.
 func messageRowTextX(group RenderedMessageGroup, width int, row messageRowSpec) int {
+	if row.centered {
+		return max(0, (width-displayWidth(row.text))/2)
+	}
 	incomingTextX := 1
 	if group.ShowAvatar {
 		incomingTextX = min(width, 5)

@@ -152,8 +152,12 @@ func demoData(photo, avatarPath string) telegram.FakeData {
 			{ID: 14, ChatID: 1, Sender: domain.SenderRef{Kind: domain.SenderUser, ID: 10}, SenderName: "Iris", SenderAccentKnown: true, SenderAccentID: 3, SentAt: at.Add(-25 * time.Minute), Kind: domain.MessageText, Text: "Try replying, reacting, or opening an image."},
 			{ID: 15, ChatID: 1, Sender: domain.SenderRef{Kind: domain.SenderUser, ID: 11}, SenderName: "Noah", SenderAccentKnown: true, SenderAccentID: 5, SentAt: at.Add(-19 * time.Minute), Kind: domain.MessageText, Text: "Drafts work in this offline demo too.", HasReply: true, ReplyToMessageID: 14, Reactions: []domain.MessageReaction{{Emoji: "👍", Count: 3}}},
 			{ID: 16, ChatID: 1, Sender: domain.SenderRef{Kind: domain.SenderUser, ID: 13}, SenderName: "Kai", SenderAccentKnown: true, SenderAccentID: 1, SentAt: at.Add(-13 * time.Minute), Kind: domain.MessageText, Text: "Here's a sample image:", Pinned: true},
-			{ID: 17, ChatID: 1, Sender: domain.SenderRef{Kind: domain.SenderUser, ID: 10}, SenderName: "Iris", SenderAccentKnown: true, SenderAccentID: 3, SentAt: at.Add(-6 * time.Minute), Kind: domain.MessagePhoto, Text: "A sample image", Media: domain.MessageMedia{File: photoRef, Thumbnail: photoRef, Width: 674, Height: 414, MIMEType: "image/png"}, Reactions: []domain.MessageReaction{{Emoji: "❤️", Count: 2}}},
-			{ID: 18, ChatID: 1, Sender: domain.SenderRef{Kind: domain.SenderUser, ID: 11}, SenderName: "Noah", SenderAccentKnown: true, SenderAccentID: 5, SentAt: at, Kind: domain.MessageText,
+			{ID: 17, ChatID: 1, Sender: domain.SenderRef{Kind: domain.SenderUser, ID: 12}, SenderName: "Mina", SentAt: at.Add(-12 * time.Minute), Kind: domain.MessageService, Service: true, Text: "Mina joined the group via an invite link"},
+			{ID: 18, ChatID: 1, Sender: domain.SenderRef{Kind: domain.SenderUser, ID: 10}, SenderName: "Iris", SentAt: at.Add(-11 * time.Minute), Kind: domain.MessageService, Service: true, Text: "Iris added Noah, Kai"},
+			{ID: 19, ChatID: 1, Sender: domain.SenderRef{Kind: domain.SenderUser, ID: 13}, SenderName: "Kai", SentAt: at.Add(-10 * time.Minute), Kind: domain.MessageService, Service: true, Text: "Kai left the group"},
+			{ID: 20, ChatID: 1, Sender: domain.SenderRef{Kind: domain.SenderUser, ID: 10}, SenderName: "Iris", SentAt: at.Add(-9 * time.Minute), Kind: domain.MessageService, Service: true, Text: "Iris removed Noah"},
+			{ID: 21, ChatID: 1, Sender: domain.SenderRef{Kind: domain.SenderUser, ID: 10}, SenderName: "Iris", SenderAccentKnown: true, SenderAccentID: 3, SentAt: at.Add(-6 * time.Minute), Kind: domain.MessagePhoto, Text: "A sample image", Media: domain.MessageMedia{File: photoRef, Thumbnail: photoRef, Width: 674, Height: 414, MIMEType: "image/png"}, Reactions: []domain.MessageReaction{{Emoji: "❤️", Count: 2}}},
+			{ID: 22, ChatID: 1, Sender: domain.SenderRef{Kind: domain.SenderUser, ID: 11}, SenderName: "Noah", SenderAccentKnown: true, SenderAccentID: 5, SentAt: at, Kind: domain.MessageText,
 				Text:     "The colors look great! See tuilegram on GitHub.",
 				Entities: []domain.TextEntity{{Offset: 27, Length: 9, Kind: domain.EntityLink, Link: domain.LinkTextURL, URL: "https://github.com/zylen-det/tuilegram"}}},
 		},
@@ -178,6 +182,10 @@ func demoData(photo, avatarPath string) telegram.FakeData {
 	properties := make(map[telegram.MessageIdentity]domain.MessageCapabilities)
 	for id, entries := range messages {
 		for _, message := range entries {
+			if message.Service {
+				properties[telegram.MessageIdentity{ChatID: id, MessageID: message.ID}] = message.Capabilities()
+				continue
+			}
 			properties[telegram.MessageIdentity{ChatID: id, MessageID: message.ID}] = domain.MessageCapabilities{Copy: true, Reply: id != 3, Forward: true, Edit: message.Outgoing, Pin: id == 1, DeleteForSelf: id != 3, DeleteForAll: message.Outgoing}
 		}
 	}

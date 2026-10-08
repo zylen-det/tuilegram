@@ -19,7 +19,7 @@ tuilegram is unofficial and is not affiliated with Telegram.
 - **Find your way:** Search chats and messages, jump to unread or mentioned chats, browse pinned messages, and complete bot commands. Navigate with Vim-style keys, conventional keys, or a mouse.
 - **Images and media:** See images and available thumbnails inline as terminal pixel cells, or open images at full fidelity with Kitty's graphics protocol. Send photos, videos, audio, documents, and stickers; open other media in the system application.
 - **Drafts and offline use:** Sync Telegram cloud drafts (including reply targets) across devices. Keep reading cached content offline and reconnect without losing the active view.
-- **Groups and channels:** Browse members and use supported administration controls.
+- **Groups and channels:** Browse members and use supported administration controls. See group service messages for joining (including invite links and approved requests), adding members, leaving, and removing members.
 - **Terminal integration:** Use desktop notifications when available and follow Kitty's configured background opacity.
 
 ## Installation

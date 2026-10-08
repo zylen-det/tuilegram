@@ -4,6 +4,7 @@ package telegram
 
 import (
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -204,7 +205,7 @@ func (n *normalizer) update(value td.Type) []Update {
 			return []Update{MessageUpserted{Message: n.messageLocked(update.Message)}}
 		}
 	case *td.UpdateMessageContent:
-		kind, text, fileName, media := messageContent(update.NewContent)
+		kind, text, fileName, media := n.messageContentLocked(update.NewContent, nil)
 		var sticker domain.StickerRef
 		if content, ok := update.NewContent.(*td.MessageSticker); ok {
 			sticker = stickerRef(content.Sticker)
@@ -360,7 +361,7 @@ func (n *normalizer) messageLocked(value *td.Message) domain.Message {
 	}
 	sender, senderName, senderAvatar := n.senderLocked(value.SenderId)
 	accentID, accentKnown := n.senderAccentLocked(sender)
-	kind, text, fileName, media := messageContent(value.Content)
+	kind, text, fileName, media := n.messageContentLocked(value.Content, value.SenderId)
 	editedAt := time.Time{}
 	if value.EditDate > 0 {
 		editedAt = time.Unix(int64(value.EditDate), 0)
@@ -596,6 +597,50 @@ func messageEntities(value td.MessageContent) []domain.TextEntity {
 		result = append(result, domain.TextEntity{Offset: int(entity.Offset), Length: int(entity.Length), Kind: kind, Link: link, URL: url})
 	}
 	return result
+}
+
+func (n *normalizer) messageContentLocked(value td.MessageContent, sender td.MessageSender) (domain.MessageKind, string, string, domain.MessageMedia) {
+	var text string
+	actor, name, _ := n.senderLocked(sender)
+	if actor.Kind == domain.SenderUser && actor.ID != 0 {
+		name = n.memberNameLocked(actor.ID)
+	}
+	switch content := value.(type) {
+	case *td.MessageChatAddMembers:
+		if len(content.MemberUserIds) == 1 && actor.Kind == domain.SenderUser && actor.ID != 0 && content.MemberUserIds[0] == actor.ID {
+			text = name + " joined the group"
+		} else {
+			members := make([]string, len(content.MemberUserIds))
+			for i, id := range content.MemberUserIds {
+				members[i] = n.memberNameLocked(id)
+			}
+			if len(members) == 0 {
+				text = name + " added members"
+			} else {
+				text = name + " added " + strings.Join(members, ", ")
+			}
+		}
+	case *td.MessageChatJoinByLink:
+		text = name + " joined the group via an invite link"
+	case *td.MessageChatJoinByRequest:
+		text = name + " joined the group after approval"
+	case *td.MessageChatDeleteMember:
+		if actor.Kind == domain.SenderUser && actor.ID != 0 && content.UserId == actor.ID {
+			text = name + " left the group"
+		} else {
+			text = name + " removed " + n.memberNameLocked(content.UserId)
+		}
+	default:
+		return messageContent(value)
+	}
+	return domain.MessageService, text, "", domain.MessageMedia{}
+}
+
+func (n *normalizer) memberNameLocked(id int64) string {
+	if user, ok := n.users[id]; ok && user.Name != "" && user.Name != "Unknown" {
+		return user.Name
+	}
+	return "User " + strconv.FormatInt(id, 10)
 }
 
 func messageContent(value td.MessageContent) (domain.MessageKind, string, string, domain.MessageMedia) {

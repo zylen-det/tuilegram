@@ -684,19 +684,42 @@ func TestMessageGroupSelectedAvatarShiftAndOmission(t *testing.T) {
 
 func TestMessageGroupServiceRowMutedSelection(t *testing.T) {
 	styles := newRenderStyles(false)
-	msg := testMessage(100, 20, "service notice")
-	msg.Service = true
-	group := styledMessageGroup("Mina", false, msg)
-	_, _, result := messageGroupCanvas(group, 40, time.Local, messageSelection{}, nil, styles)
-	if result.Rows[1].kind != messageRowMuted {
-		t.Errorf("service row kind = %v, want muted", result.Rows[1].kind)
-	}
-	if result.Rows[1].messageID != 100 {
-		t.Errorf("service row must retain selection identity: %+v", result.Rows[1])
-	}
-	selections := selectMessageInteractions(result)
-	if len(selections) != 1 || selections[0].Click.MessageID != 100 {
-		t.Errorf("service row SelectMessage = %+v", selections)
+	for _, test := range []struct {
+		name     string
+		text     string
+		width    int
+		outgoing bool
+		lines    []string
+		x        []int
+	}{
+		{"plain", "service notice", 40, false, []string{"service notice"}, []int{13}},
+		{"wide characters", "小明加入群組", 21, false, []string{"小明加入群組"}, []int{4}},
+		{"wrapped", "Alice added Bob and Carol", 14, false, []string{"Alice added", "Bob and Caro", "l"}, []int{1, 1, 6}},
+		{"outgoing", "service notice", 41, true, []string{"service notice"}, []int{13}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			msg := testMessage(100, 20, test.text)
+			msg.Service, msg.Outgoing = true, test.outgoing
+			group := styledMessageGroup("Mina", false, msg)
+			canvas, _, result := messageGroupCanvas(group, test.width, time.Local, messageSelection{ChatID: 20, MessageID: 100}, nil, styles)
+			if len(result.Rows) != len(test.lines)+2 {
+				t.Fatalf("rows = %+v, want %d content rows", result.Rows, len(test.lines))
+			}
+			for i, line := range test.lines {
+				row := result.Rows[i+1]
+				if row.text != line || row.kind != messageRowMuted || row.messageID != 100 {
+					t.Fatalf("service row = %+v, want %q with muted selection identity", row, line)
+				}
+				first := string([]rune(line)[0])
+				if got := canvas.CellAt(test.x[i], i+1).Content; got != first {
+					t.Errorf("cell at centered x=%d = %q, want %q", test.x[i], got, first)
+				}
+			}
+			selections := selectMessageInteractions(result)
+			if len(selections) != len(test.lines) || selections[0].Click.MessageID != 100 {
+				t.Errorf("service row SelectMessage = %+v", selections)
+			}
+		})
 	}
 }
 

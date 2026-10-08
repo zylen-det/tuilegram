@@ -12,6 +12,57 @@ import (
 	"github.com/zylen-det/tuilegram/internal/domain"
 )
 
+func TestNormalizerMembershipServiceMessages(t *testing.T) {
+	n := newNormalizer()
+	n.user(&td.User{Id: 41, FirstName: "Alice"})
+	n.user(&td.User{Id: 42, FirstName: "Bob"})
+	n.user(&td.User{Id: 43, FirstName: "Carol"})
+	tests := []struct {
+		name    string
+		sender  td.MessageSender
+		content td.MessageContent
+		want    string
+	}{
+		{"self join", &td.MessageSenderUser{UserId: 41}, &td.MessageChatAddMembers{MemberUserIds: []int64{41}}, "Alice joined the group"},
+		{"invited member", &td.MessageSenderUser{UserId: 41}, &td.MessageChatAddMembers{MemberUserIds: []int64{42}}, "Alice added Bob"},
+		{"multiple members", &td.MessageSenderUser{UserId: 41}, &td.MessageChatAddMembers{MemberUserIds: []int64{43, 42}}, "Alice added Carol, Bob"},
+		{"invite link", &td.MessageSenderUser{UserId: 41}, &td.MessageChatJoinByLink{}, "Alice joined the group via an invite link"},
+		{"approved request", &td.MessageSenderUser{UserId: 41}, &td.MessageChatJoinByRequest{}, "Alice joined the group after approval"},
+		{"self leave", &td.MessageSenderUser{UserId: 41}, &td.MessageChatDeleteMember{UserId: 41}, "Alice left the group"},
+		{"removed member", &td.MessageSenderUser{UserId: 41}, &td.MessageChatDeleteMember{UserId: 42}, "Alice removed Bob"},
+		{"uncached member", &td.MessageSenderUser{UserId: 41}, &td.MessageChatAddMembers{MemberUserIds: []int64{99}}, "Alice added User 99"},
+		{"uncached actor", &td.MessageSenderUser{UserId: 99}, &td.MessageChatAddMembers{MemberUserIds: []int64{99}}, "User 99 joined the group"},
+		{"empty members", &td.MessageSenderUser{UserId: 41}, &td.MessageChatAddMembers{}, "Alice added members"},
+		{"chat actor", &td.MessageSenderChat{ChatId: 41}, &td.MessageChatDeleteMember{UserId: 41}, "Unknown removed Alice"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			message := n.message(&td.Message{Id: 50, ChatId: 10, SenderId: test.sender, Content: test.content})
+			if message.Kind != domain.MessageService || !message.Service || message.DisplayText() != test.want {
+				t.Fatalf("service message = %+v, want %q", message, test.want)
+			}
+		})
+	}
+}
+
+func TestNormalizerMembershipServiceUpdateAndPreview(t *testing.T) {
+	n := newNormalizer()
+	n.user(&td.User{Id: 41, FirstName: "Alice"})
+	message := &td.Message{Id: 50, ChatId: 10, SenderId: &td.MessageSenderUser{UserId: 41}, Content: &td.MessageChatJoinByLink{}}
+	got := singleUpdate(t, n.update(&td.UpdateNewMessage{Message: message})).(MessageUpserted).Message
+	if !got.Service || got.Text != "Alice joined the group via an invite link" {
+		t.Fatalf("live service message = %+v", got)
+	}
+	chat := n.chat(&td.Chat{Id: 10, Type: &td.ChatTypeBasicGroup{BasicGroupId: 1}, LastMessage: message})
+	if chat.LastMessage != got.Text {
+		t.Fatalf("chat preview = %q, want %q", chat.LastMessage, got.Text)
+	}
+	updated := singleUpdate(t, n.update(&td.UpdateMessageContent{ChatId: 10, MessageId: 50, NewContent: &td.MessageChatAddMembers{MemberUserIds: []int64{41}}})).(MessageContentUpdated)
+	if updated.Kind != domain.MessageService || updated.Text != "Unknown added Alice" {
+		t.Fatalf("service content update = %+v", updated)
+	}
+}
+
 func TestNormalizerMapsConnectionAndClosedUpdates(t *testing.T) {
 	tests := []struct {
 		state td.ConnectionState

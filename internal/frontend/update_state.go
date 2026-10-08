@@ -810,6 +810,7 @@ func reduceTelegramUpdate(state *State, event TelegramEvent) []Effect {
 		if index := messageIndex(state.Messages[update.ChatID], update.MessageID); index >= 0 {
 			existing := state.Messages[update.ChatID][index].Media.Thumbnail
 			state.Messages[update.ChatID][index].Kind = update.Kind
+			state.Messages[update.ChatID][index].Service = update.Kind == domain.MessageService
 			state.Messages[update.ChatID][index].Text = update.Text
 			state.Messages[update.ChatID][index].Entities = append([]domain.TextEntity(nil), update.Entities...)
 			syncMessageMenuLinks(state, state.Messages[update.ChatID][index])
